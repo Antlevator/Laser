@@ -4,11 +4,13 @@
 
 const int MODE_CALIBRATION = 0;
 const int MODE_EXECUTION = 1;
+const int MODE_FAILURE = 2;
 
 // config
-const int LOG_BAUD_RATE = 115200;
+const long LOG_BAUD_RATE = 115200;
 const int STEPS_PER_REV = 2048; // for the stepper motor
-const int MAX_SPEED = 200;
+const int _MAX_SPEED = 200;
+
 const int CALIBRATION_SPEED = 100;
 const int CALIBRATION_ACCELERATION = 100;
 const int angle_in1 = 3;
@@ -31,7 +33,7 @@ const int radius_in4 = 10;
 const int angle_center_in = 11;
 const int radius_center_in = 12;
 
-const int failure_indicator_out = 14;
+const int failure_indicator_out = 13;
 const int laser_out = 15;
 
 // note, DO NOT USE PIN 13 on ATMega!!! see https://docs.arduino.cc/learn/microcontrollers/digital-pins
@@ -43,25 +45,26 @@ const int laser_out = 15;
 AccelStepper angleStepper(AccelStepper::FULL4WIRE, angle_in1, angle_in3, angle_in2, angle_in4);
 AccelStepper radiusStepper(AccelStepper::FULL4WIRE, radius_in1, radius_in3, radius_in2, radius_in4);
 
-MultiStepper steppers();
+MultiStepper steppers;
 
 int mode = MODE_CALIBRATION;
 
 // calibration step
 
 void setup() {
+  
   // set up steppers
   steppers.addStepper(angleStepper);
   steppers.addStepper(radiusStepper);
-  angleStepper.setMaxSpeed(MAX_SPEED);
-  radiusStepper.setMaxSpeed(MAX_SPEED);
+  angleStepper.setMaxSpeed(_MAX_SPEED);
+  radiusStepper.setMaxSpeed(_MAX_SPEED);
   angleStepper.setAcceleration(CALIBRATION_ACCELERATION);
   radiusStepper.setAcceleration(CALIBRATION_ACCELERATION);
 
   // set up pin modes
   pinMode(angle_center_in, INPUT);
   pinMode(radius_center_in, INPUT);
-  pinMode(failure_indictator_out, OUTPUT);
+  pinMode(failure_indicator_out, OUTPUT);
   pinMode(laser_out, OUTPUT);
   
   // set initial values of output pins
@@ -92,25 +95,25 @@ void failure() {
 
 void calibrate() {
   // first, move the laser pointer until the sheath's magnet triggers the hall effect sensor on the platform
-  Serial.write("calibrating radius stepper...");
-  radiusStepper.setSpeed(CALIBRATION_SPEED);
-  bool foundRadiusCenter = false;
-  for(int i = 0; i < STEPS_PER_REV; i++) {
-    radiusStepper.run();
-    if(digitalRead(radius_center_in) == HIGH) {
-      Serial.write("found center for radius, moving to opposite side to set position...");
-      radiusStepper.runToNewPosition(STEPS_PER_REV / 2);
-      radiusStepper.setCurrentPosition();
-      Serial.write("center position set!");
-      foundRadiusCenter = true;
-      break;
-    }
-  }
-  if(!foundRadiusCenter) {
-    Serial.write("Failed to calibrate radius stepper!");
-    mode = MODE_FAILURE;
-    return;
-  }
+//  Serial.write("calibrating radius stepper...");
+//  radiusStepper.setSpeed(CALIBRATION_SPEED);
+//  bool foundRadiusCenter = false;
+//  for(int i = 0; i < STEPS_PER_REV; i++) {
+//    radiusStepper.run();
+//    if(digitalRead(radius_center_in) == HIGH) {
+//      Serial.write("found center for radius, moving to opposite side to set position...");
+//      radiusStepper.runToNewPosition(STEPS_PER_REV / 2);
+//      radiusStepper.setCurrentPosition(0);
+//      Serial.write("center position set!");
+//      foundRadiusCenter = true;
+//      break;
+//    }
+//  }
+//  if(!foundRadiusCenter) {
+//    Serial.write("Failed to calibrate radius stepper!");
+//    mode = MODE_FAILURE;
+//    return;
+//  }
   
   // second, rotate the platform until it's magnet triggers the hall effect sensor on the base
   Serial.write("calibrating angle stepper...");
@@ -119,7 +122,7 @@ void calibrate() {
   for(int i = 0; i < STEPS_PER_REV; i++) {
     angleStepper.run();
     if(digitalRead(angle_center_in) == HIGH) {
-      angleStepper.setCurrentPosition();
+      angleStepper.setCurrentPosition(0);
       Serial.write("center position set!");
       foundAngleCenter = true;
       break;
@@ -137,5 +140,6 @@ void calibrate() {
 }
 
 void execute() {
-  
+  digitalWrite(failure_indicator_out, HIGH);
+  delay(100);
 }
